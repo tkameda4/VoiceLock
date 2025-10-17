@@ -121,6 +121,40 @@ function VoiceLock() {
     }
   };
 
+// const forgotPassword = async () => {
+//   setMessage("Say 'reset password' to verify your identity.");
+//   const { blob, text } = await recordAndTranscribe();
+//   console.log("Forgot password phrase:", text);
+
+//   if (!text.toLowerCase().includes("reset password")) {
+//     setMessage("Please say the phrase 'reset password' clearly.");
+//     return;
+//   }
+
+//   const formData = new FormData();
+//   formData.append("file", blob, "recording.webm");
+//   formData.append("phrase", text);
+
+//   try {
+//     const verifyVoice = await fetch(`${URL}/verifyVoice`, {
+//       method: "POST",
+//       body: formData,
+//     });
+//     const voiceResult = await verifyVoice.json();
+
+//     if (voiceResult.match) {
+//       setMessage("Voice verified. Password has been reset successfully!");
+      
+//     } else {
+//       setMessage("Voice verification failed. Cannot reset password.");
+//     }
+//   } catch (err) {
+//     console.error("Forgot password error:", err);
+//     setMessage("Error verifying voice. Please try again.");
+//   }
+// };
+
+
   return (
     <>
       <VoiceListener onTrigger={recordPassword} />
@@ -145,6 +179,12 @@ function VoiceLock() {
                 >
                   Unlock
                 </button>
+                {/* <button 
+                    onClick={forgotPassword} 
+                    style={{ marginLeft: "10px", padding: "10px 20px", backgroundColor: "#555", color: "white", border: "none", borderRadius: "5px" }}
+                >
+                    Forgot Password
+                </button> */}
               </>
             )}
             {recording && (

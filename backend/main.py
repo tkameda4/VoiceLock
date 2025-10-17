@@ -108,12 +108,13 @@ def verifyVoice():
         )
 
         voice_match = similarity > 0.80
+        
         phrase_match = (phrase == saved_phrase)
-
-        if voice_match and phrase_match:
+        
+        if voice_match:
             for f in os.listdir(UPLOAD_DIR):
                 os.remove(os.path.join(UPLOAD_DIR, f))
-                
+
             result = {"match": True, "similarity": float(similarity), "message": "Voice and phrase verified!"}
         elif phrase_match and not voice_match:
             result = {"match": False, "similarity": float(similarity), "message": "Phrase correct, but different voice detected!"}
