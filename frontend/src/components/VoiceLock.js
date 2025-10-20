@@ -1,17 +1,31 @@
+/*
+*  Author: Yoshi Kameda
+*  Date: 2025-10-18
+*
+*  Description: Locks and unlocks website using your voice. The key is verified only if the phrase and your voice matches.
+*/
+
 import React, { useState } from "react";
 import VoiceListener from "./VoiceListener";
+import "./VoiceLock.css";
 
+// backend url
 const URL = "http://127.0.0.1:5000";
 
 function VoiceLock() {
+  // states
   const [recording, setRecording] = useState(false);
   const [recorder, setRecorder] = useState(null);
   const [password, setPassword] = useState("");     
   const [unlockKey, setUnlockKey] = useState("");   
-  const [wordVerified, setWordVerified] = useState(false);
   const [message, setMessage] = useState("");
   const [voiceVerified, setVoiceVerified] = useState(false);
+  const [isLocked, setIsLocked] = useState(false);
 
+  /*
+  *  - Records user voice with MediaRecorder
+  *  - Transcribes the voice into text using VOSK model
+  */
   const recordAndTranscribe = async () => {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     const mediaRecorder = new MediaRecorder(stream);
@@ -37,7 +51,7 @@ function VoiceLock() {
           resolve({ blob, text });
         } catch (err) {
           console.error("Error uploading:", err);
-          resolve("");
+          resolve({ blob: null, text: "" });
         }
       };
 
@@ -52,67 +66,83 @@ function VoiceLock() {
     });
   };
 
+  /*
+  *  - Records the password to lock with
+  *  - Registers the word and the voice in the backend
+  */
   const recordPassword = async () => {
     setMessage("Listening... please say your password clearly.");
     const { blob, text } = await recordAndTranscribe();    
-    setPassword(text);
-    setMessage("Password captured successfully.");
-    console.log("Saved password:", text);
+
+    if (!blob || !text) {
+      setMessage("Failed to record. Please try again.");
+      return;
+    }
 
     const formData = new FormData();
     formData.append("file", blob, "recording.webm");
     formData.append("phrase", text);
 
-    const response = await fetch(`${URL}/register`, {
+    try {
+      const response = await fetch(`${URL}/register`, {
         method: "POST",
         body: formData,
-    });
-    const result = await response.json();
-    console.log("Register result:", result);
-    setMessage(result.message || "Password has been set.");
+      });
+      const result = await response.json();
+
+      setPassword(text);
+      setMessage(result.message || "Password has been set successfully.");
+      setIsLocked(true);
+    } catch (err) {
+      console.error("Error registering password:", err);
+      setMessage("Error saving password. Please try again.");
+    }
   };
 
+  /*
+  *  - Unlocks the key using user voice
+  *  - Verifies if the phrase match
+  *  - Verifies if the voice match
+  */
   const unlockPassword = async () => {
     setMessage("Listening... please say your password to unlock.");
     const { blob, text } = await recordAndTranscribe();
     setUnlockKey(text);
-    console.log("Unlock attempt:", text);
 
     try {
       const verifyWord = await fetch(`${URL}/verifyWord`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password: password, unlockKey: text }),
+        body: JSON.stringify({ password, unlockKey: text }),
       });
 
       const result = await verifyWord.json();
-      console.log("Verification result:", result);
 
+      // verfiy word first
       if (result.match) {
-        setWordVerified(true);
         setMessage("Password recognized. Verifying voice...");
-
         const formData = new FormData();
         formData.append("file", blob, "recording.webm");
         formData.append("phrase", text);
 
         const verifyVoice = await fetch(`${URL}/verifyVoice`, {
-            method: "POST",
-            body: formData,
+          method: "POST",
+          body: formData,
         });
 
+        // now verify voice
         const voiceResult = await verifyVoice.json();
-        console.log("Voice verification result:", voiceResult);
-        if (voiceResult.match){
-            setVoiceVerified(true);
-            setMessage("Access granted. Voice verified successfully.");
+        if (voiceResult.match) {
+          setVoiceVerified(true);
+          setMessage("Access granted. Voice verified successfully.");
+          setIsLocked(false);
+          setPassword("");
+          setUnlockKey("");
         } else {
-            setVoiceVerified(false);
-            setMessage("Voice verification failed. Please try again.");
+          setVoiceVerified(false);
+          setMessage("Voice verification failed. Please try again.");
         }
-
       } else {
-        setWordVerified(false);
         setMessage("Incorrect password. Access denied.");
       }
     } catch (err) {
@@ -121,106 +151,60 @@ function VoiceLock() {
     }
   };
 
-// const forgotPassword = async () => {
-//   setMessage("Say 'reset password' to verify your identity.");
-//   const { blob, text } = await recordAndTranscribe();
-//   console.log("Forgot password phrase:", text);
-
-//   if (!text.toLowerCase().includes("reset password")) {
-//     setMessage("Please say the phrase 'reset password' clearly.");
-//     return;
-//   }
-
-//   const formData = new FormData();
-//   formData.append("file", blob, "recording.webm");
-//   formData.append("phrase", text);
-
-//   try {
-//     const verifyVoice = await fetch(`${URL}/verifyVoice`, {
-//       method: "POST",
-//       body: formData,
-//     });
-//     const voiceResult = await verifyVoice.json();
-
-//     if (voiceResult.match) {
-//       setMessage("Voice verified. Password has been reset successfully!");
-      
-//     } else {
-//       setMessage("Voice verification failed. Cannot reset password.");
-//     }
-//   } catch (err) {
-//     console.error("Forgot password error:", err);
-//     setMessage("Error verifying voice. Please try again.");
-//   }
-// };
-
-
+  /*
+  *  UI render
+  *  Key feature: Once the password is set, the website is grayed out to indicate that it is locked
+  *               If unlocked, then the website is switched back to the original state
+  */
   return (
     <>
-      <VoiceListener onTrigger={recordPassword} />
+      <VoiceListener
+        onTrigger={isLocked ? unlockPassword : recordPassword}
+        isLocked={isLocked}
+      />
 
-      <div style={{ textAlign: "center", marginTop: "100px" }}>
-        {!(wordVerified && voiceVerified) && (
-          <>
-            <h2 style={{ marginBottom: "20px" }}>🔑 Create your voice password 🔑</h2>
-            <h3>(You can also say "set password" to set your password!)</h3>
+      {/* Unlocked view */}
+      {!isLocked && (
+        <div className="voice-container">
+          <h2 className="voice-title">🔑 Create your voice password 🔑</h2>
+          <h3 className="voice-subtitle">
+            (You can also say "set password" to set your password!)
+          </h3>
 
-            {!recording && (
-              <>
-                <button 
-                  onClick={recordPassword} 
-                  style={{ marginRight: "10px", padding: "10px 20px" }}
-                >
-                  Set Voice Password
-                </button>
-                <button 
-                  onClick={unlockPassword} 
-                  style={{ padding: "10px 20px" }}
-                >
-                  Unlock
-                </button>
-                {/* <button 
-                    onClick={forgotPassword} 
-                    style={{ marginLeft: "10px", padding: "10px 20px", backgroundColor: "#555", color: "white", border: "none", borderRadius: "5px" }}
-                >
-                    Forgot Password
-                </button> */}
-              </>
-            )}
-            {recording && (
-              <button
-                onClick={() => recorder?.stop()}
-                style={{
-                  background: "red",
-                  color: "white",
-                  padding: "10px 20px",
-                  border: "none",
-                  borderRadius: "5px",
-                }}
-              >
-                Stop Recording
-              </button>
-            )}
-            <p style={{ marginTop: "20px", color: "#333" }}>{message}</p>
-          </>
-        )}
+          {!recording ? (
+            <button onClick={recordPassword} className="voice-button">
+              Set Voice Password
+            </button>
+          ) : (
+            <button onClick={() => recorder?.stop()} className="stop-button">
+              Stop Recording
+            </button>
+          )}
 
-        {(wordVerified && voiceVerified) && (
-          <div
-            style={{
-              width: "400px",
-              margin: "auto",
-              padding: "40px",
-              border: "2px solid #4CAF50",
-              borderRadius: "15px",
-              backgroundColor: "#F8FFF8",
-            }}
-          >
-            <h2 style={{ color: "#2E7D32" }}>Access Granted</h2>
-            <p>Welcome! The system has verified your voice successfully.</p>
-          </div>
-        )}
-      </div>
+          <p className="voice-message">{message}</p>
+        </div>
+      )}
+
+      {/* Locked view */}
+      {isLocked && (
+        <div className="locked-overlay">
+          <h2>🔒 Website Locked 🔒</h2>
+          <p>Say your password to unlock.</p>
+          <p>(You can also say "unlock" to unlock!)</p>
+
+          {!recording ? (
+            <button onClick={unlockPassword} className="unlock-button">
+              Unlock
+            </button>
+          ) : (
+            <button onClick={() => recorder?.stop()} className="stop-button">
+              Stop Recording
+            </button>
+          )}
+
+          <p className="voice-message">{message}</p>
+        </div>
+      )}
     </>
   );
 }

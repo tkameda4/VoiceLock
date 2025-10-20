@@ -1,3 +1,8 @@
+/*
+*  Author: Yoshi Kameda
+*  Date: 2025-10-18
+*/
+
 import React from 'react';
 import VoiceLock from './components/VoiceLock';
 

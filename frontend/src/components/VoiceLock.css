@@ -1,0 +1,82 @@
+/* Style file for VoiceLock.js */
+.voice-container {
+  text-align: center;
+  margin-top: 100px;
+}
+
+.voice-title {
+  margin-bottom: 20px;
+  font-size: 24px;
+}
+
+.voice-subtitle {
+  font-size: 16px;
+  color: #555;
+}
+
+.voice-button {
+  padding: 10px 20px;
+  background-color: green;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  margin: 0 10px;
+}
+
+.voice-button:hover {
+  background-color: darkgreen;
+}
+
+.stop-button {
+  background: red;
+  color: white;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 5px;
+}
+
+.voice-message {
+  margin-top: 20px;
+  color: #333;
+}
+
+.locked-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(0, 0, 0, 0.75);
+  z-index: 999;
+  backdrop-filter: blur(3px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  text-align: center;
+}
+
+.locked-overlay h2 {
+  font-size: 28px;
+  margin-bottom: 10px;
+}
+
+.locked-overlay p {
+  margin-bottom: 20px;
+  color: white;
+}
+
+.unlock-button {
+  padding: 10px 20px;
+  border-radius: 8px;
+  border: none;
+  background-color: green;
+  color: white;
+  cursor: pointer;
+}
+
+.unlock-button:hover {
+  background-color: darkgreen;
+}

@@ -28,6 +28,7 @@ platformdirs==4.5.0
 pooch==1.8.2
 pycparser==2.23
 pydub==0.25.1
+pyotp==2.9.0
 requests==2.32.5
 Resemblyzer==0.1.4
 scikit-learn==1.7.2

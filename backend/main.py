@@ -1,6 +1,11 @@
+'''
+Author: Yoshi Kameda
+Date: 2025-10-18
+
+Description: Contains path to handle audio/text inputs. 4 routes: transcribe, verifyWord, verifyVoice, and register
+'''
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from pydub import AudioSegment
 import subprocess
 import wave
 import json
@@ -22,7 +27,12 @@ model = Model(MODEL_PATH)
 # for register
 encoder = VoiceEncoder()
 
-# transcribe
+'''
+route: 'url/transcribe'
+
+- transcribes the input audio using VOSK model
+- returns the text version of the audio
+'''
 @app.route("/transcribe", methods=["POST"])
 def transcribe():
     try:
@@ -41,7 +51,7 @@ def transcribe():
         rec = KaldiRecognizer(model, wf.getframerate())
         rec.SetWords(True)
 
-        results, words = [], []
+        results = []
 
         while True:
             data = wf.readframes(4000)
@@ -61,7 +71,12 @@ def transcribe():
         print("Error transcribing:", e)
         return jsonify({"error": str(e)}), 500
 
+'''
+route: 'url/verifyWord'
 
+- Verfies if the words match
+- Returns true if the words match. False otherwise.
+'''
 @app.route("/verifyWord", methods=["POST"])
 def verifyWord():
     data = request.get_json()
@@ -74,18 +89,19 @@ def verifyWord():
     else:
         return jsonify({"match": False, "message": "Access denied"})
     
+'''
+route: 'url/verifyVoice'
 
+- Verifies if voices match using Resemblyzer AI
+- Returns true if the voices match. False otherwise.
+- If the voices do match, deletes the recording files so that new password can be set next time
+'''
 @app.route("/verifyVoice", methods=["POST"])
 def verifyVoice():
     try:
         file = request.files["file"]
-        phrase = request.form.get("phrase", "").lower().strip()
 
         registered_voice_path = os.path.join(UPLOAD_DIR, "registered_voice.npy")
-        registered_phrase_path = os.path.join(UPLOAD_DIR, "registered_phrase.txt")
-
-        if not os.path.exists(registered_voice_path) or not os.path.exists(registered_phrase_path):
-            return jsonify({"match": False, "message": "No registered voice found."}), 400
 
         webm_path = os.path.join(UPLOAD_DIR, "verify.webm")
         wav_path = os.path.join(UPLOAD_DIR, "verify.wav")
@@ -100,26 +116,20 @@ def verifyVoice():
         new_embedding = encoder.embed_utterance(wav)
 
         registered_embedding = np.load(registered_voice_path)
-        with open(registered_phrase_path, "r") as f:
-            saved_phrase = f.read().strip().lower()
 
         similarity = np.dot(registered_embedding, new_embedding) / (
             np.linalg.norm(registered_embedding) * np.linalg.norm(new_embedding)
         )
 
-        voice_match = similarity > 0.80
-        
-        phrase_match = (phrase == saved_phrase)
+        voice_match = similarity > 0.75
         
         if voice_match:
             for f in os.listdir(UPLOAD_DIR):
                 os.remove(os.path.join(UPLOAD_DIR, f))
 
-            result = {"match": True, "similarity": float(similarity), "message": "Voice and phrase verified!"}
-        elif phrase_match and not voice_match:
-            result = {"match": False, "similarity": float(similarity), "message": "Phrase correct, but different voice detected!"}
+            result = {"match": True, "similarity": float(similarity), "message": "Voice verified!"}
         else:
-            result = {"match": False, "similarity": float(similarity), "message": "Voice or phrase mismatch."}
+            result = {"match": False, "similarity": float(similarity), "message": "Voice mismatch."}
 
         return jsonify(result)
 
@@ -127,15 +137,15 @@ def verifyVoice():
         print("Error verifying voice:", e)
         return jsonify({"error": str(e)}), 500
 
-    
+'''
+route: 'url/register'
 
-
+- Registers your voice using Resemblyzer AI and saves as .wav and .webm file
+- Returns a message if successful
+'''
 @app.route("/register", methods=["POST"])
 def register():
-    try:
-        if os.path.exists(os.path.join(UPLOAD_DIR, "registered_voice.npy")) and os.path.exists(os.path.join(UPLOAD_DIR, "registered_phrase.txt")):
-            return jsonify({"message": "Password already set"})
-        
+    try: 
         file = request.files["file"]
         phrase = request.form.get("phrase").lower().strip()
         print(phrase)
